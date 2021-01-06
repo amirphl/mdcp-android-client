@@ -2,6 +2,8 @@ package com.nxtgizmo.androidmqttdemo.di.model;
 
 import android.app.Application;
 
+import com.nxtgizmo.androidmqttdemo.R;
+
 import org.eclipse.paho.android.service.MqttAndroidClient;
 import org.eclipse.paho.client.mqttv3.MqttClient;
 
@@ -16,10 +18,11 @@ public class NetModule {
     public NetModule() {
     }
 
-    @Provides @Singleton
-    MqttAndroidClient provideMqttAndroidClient (Application application) {
+    @Provides
+    @Singleton
+    MqttAndroidClient provideMqttAndroidClient(Application application) {
         String clientId = MqttClient.generateClientId();
-        return new MqttAndroidClient(application, "tcp://broker.hivemq.com:1883",
-                clientId);
+        String brokerAddress = application.getString(R.string.broker_address);
+        return new MqttAndroidClient(application, brokerAddress, clientId);
     }
 }
