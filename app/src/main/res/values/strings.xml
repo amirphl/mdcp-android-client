@@ -3,7 +3,7 @@
     <string name="broker_address">tcp://172.25.0.2:1883</string>
     <string name="registration_topic">registration</string>
     <string name="unregistration_topic">unregistration</string>
-    <string name="qos">1</string>
+    <string name="qos">2</string>
     <string name="executable_job_class">com.example.Job</string>
 <!--    <string name="executable_job_class">com.vruiz.invertedindex.Indexer</string>-->
     <string name="executable_start_method_name">start</string>
