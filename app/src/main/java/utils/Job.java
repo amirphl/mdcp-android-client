@@ -1,6 +1,6 @@
 package utils;
 
-import org.eclipse.paho.client.mqttv3.MqttException;
+import android.widget.TextView;
 
 import java.io.BufferedInputStream;
 import java.io.ByteArrayOutputStream;
@@ -11,11 +11,8 @@ import java.io.InputStream;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.URL;
-import java.net.URLConnection;
 
 import dalvik.system.DexClassLoader;
-import okhttp3.Call;
-import okhttp3.Callback;
 import okhttp3.MediaType;
 import okhttp3.MultipartBody;
 import okhttp3.OkHttpClient;
@@ -35,16 +32,18 @@ public class Job {
     private final String jobInputURL;
     private final String executableFileName;
     private final String inputFileName;
-    private final int fraction; // TODO
-    private final int totalFraction; // TODO
+    private final int fraction;
+    private final int totalFraction;
     private final String jobId;
     private final File filesDir;
     private final File cacheDir;
     private final String deviceId;
+    private final TextView logTextView;
 
     public Job(File filesDir, File cacheDir,
                String jobExecutableURL, String jobInputURL, String executableFileName,
-               String inputFileName, int fraction, int totalFractions, String jobId, String deviceId) {
+               String inputFileName, int fraction, int totalFractions, String jobId,
+               String deviceId, TextView logTextView) {
         this.jobExecutableURL = jobExecutableURL;
         this.jobInputURL = jobInputURL;
         this.executableFileName = executableFileName;
@@ -55,6 +54,7 @@ public class Job {
         this.filesDir = filesDir;
         this.cacheDir = cacheDir;
         this.deviceId = deviceId;
+        this.logTextView = logTextView;
     }
 
     public void run() {
@@ -70,43 +70,44 @@ public class Job {
             final Object executableJobInstance = c.newInstance();
             Method start = c.getMethod(EXECUTABLE_START_METHOD_NAME, String.class);
 
-            Timber.d("starting execution of %s with %s as input",
+            String m = String.format("starting execution of %s with %s as input",
                     executableFileName, inputFileName);
+            addLogInTextView(m);
+
             long s = System.currentTimeMillis();
-            Timber.d("%s----------", inputFilePath);
             String outputFilePath = (String) start.invoke(executableJobInstance, inputFilePath); // TODO don't let write anywhere except
             long e = System.currentTimeMillis();
-            Timber.d("took %s sec to execute %s", (e - s) / 1000, executableFileName);
+
+            m = String.format("took %s milliseconds to execute %s", (e - s), executableFileName);
+            addLogInTextView(m);
 
             uploadOutput(outputFilePath);
-            // TODO request panel and say what happened + upload + unregister + re register
         } catch (IOException | ClassNotFoundException | IllegalAccessException |
                 InstantiationException | NoSuchMethodException | InvocationTargetException e) {
-            e.printStackTrace();
+            addLogInTextView(e.getMessage());
             try {
                 String errorsFilePath = writeFileOnInternalStorage("errors.csv",
-                        e.getMessage().getBytes()); // TODO
+                        e.getMessage().getBytes());
                 uploadOutput(errorsFilePath);
-            } catch (IOException ioException) {
-                ioException.printStackTrace();
+            } catch (IOException e2) {
+                addLogInTextView(e2.getMessage());
             }
         }
     }
 
     private byte[] download(String downloadUrl) throws IOException {
         long startTime = System.currentTimeMillis();
-        URL url = new URL(downloadUrl);
-        URLConnection ucon = url.openConnection();
-        InputStream is = ucon.getInputStream();
+        InputStream is = new URL(downloadUrl).openConnection().getInputStream();
         BufferedInputStream bis = new BufferedInputStream(is);
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         byte[] data = new byte[5000];
         int current;
-        while ((current = bis.read(data, 0, data.length)) != -1) {
+        while ((current = bis.read(data, 0, data.length)) != -1)
             baos.write(data, 0, current);
-        }
-        Timber.d("DownloadManager: %s  ---> download ready in %s sec",
-                downloadUrl, ((System.currentTimeMillis() - startTime) / 1000));
+        long endTime = System.currentTimeMillis();
+        String m = String.format("DownloadManager: downloaded %s in %s milliseconds", downloadUrl,
+                (endTime - startTime));
+        addLogInTextView(m);
         return baos.toByteArray();
     }
 
@@ -115,10 +116,12 @@ public class Job {
         File dir = new File(filesDir, APP_NAME);
         if (!dir.exists()) {
             boolean t = dir.mkdir();
-            Timber.d("created folder %s ? %s", APP_NAME, String.valueOf(t));
+            String m = String.format("created folder %s ? %s", APP_NAME, t);
+            addLogInTextView(m);
         }
         File f = new File(dir, fileName);
-        Timber.d("write file in %s", f.getAbsoluteFile());
+        String m = String.format("write file in %s", f.getAbsoluteFile());
+        addLogInTextView(m);
         FileOutputStream fos = new FileOutputStream(f);
         fos.write(body);
         fos.flush();
@@ -133,7 +136,7 @@ public class Job {
                 .addFormDataPart("index", String.valueOf(fraction))
                 .addFormDataPart("device_id", deviceId)
                 .addFormDataPart("file", "partial_result_file",
-                        RequestBody.create(MediaType.parse("text/csv"), file))
+                        RequestBody.create(MediaType.parse("text/csv"), file)) // TODO media type may be unknown
                 .build();
         Request request = new Request.Builder()
                 .url(WEB_ADDRESS + "/jobs/" + jobId + "/partial-results/")
@@ -144,11 +147,16 @@ public class Job {
             int respCode = response.code();
             String respMsg = response.message();
             String respBody = response.body().string();
-            Timber.d("upload result:\nstatus code: %s\nresponse message: %s\nresponse body: %s",
+            String m = String.format("upload result:\nstatus code: %s\nresponse message: %s\nresponse body: %s",
                     respCode, respMsg, respBody);
+            addLogInTextView(m);
         } catch (IOException e) {
-            e.printStackTrace();
-            // TODO retry
+            addLogInTextView(e.getMessage());
         }
+    }
+
+    private void addLogInTextView(String logMessage) {
+        Timber.d("======================= %s", logMessage);
+        logTextView.append(logMessage + "\n------------------\n");
     }
 }

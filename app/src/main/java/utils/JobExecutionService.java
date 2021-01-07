@@ -1,5 +1,7 @@
 package utils;
 
+import android.widget.TextView;
+
 import org.eclipse.paho.android.service.MqttAndroidClient;
 import org.eclipse.paho.client.mqttv3.IMqttActionListener;
 import org.eclipse.paho.client.mqttv3.IMqttMessageListener;
@@ -21,22 +23,41 @@ import static com.nxtgizmo.androidmqttdemo.dashboard.DashBoardActivity.REGISTRAT
 public class JobExecutionService {
 
     private final MqttAndroidClient client;
-    private SecureRandom numberGenerator;
-    private String deviceId;
     private final File filesDir;
     private final File cacheDir;
+    private final TextView logTextView;
+    private final SecureRandom numberGenerator = new SecureRandom();
+    private String deviceId;
 
     // message format: relative_executable_address + space + relative_input_address + space + fraction + space + total_fractions + space + uuid
     // ex: /media/jobs/2021/01/01/executables/yy_Sg0go6G.jar /media/jobs/2021/01/01/input_files/xx_mEibqXd.csv 3 10 c98610fb7bfb8068cf2616e1c2c00a76
     private class MessageListener implements IMqttMessageListener {
+        private boolean firstMessage = true;
+
         @Override
         public void messageArrived(String topic, MqttMessage message) throws MqttException {
-//            if (message.isDuplicate())
-//                return;
-//            Timber.d("------ %s", message.getQos()); TODO
-//            Timber.d("------ %s", message.isRetained());  TODO
-            // TODO unsubscribe
-            Timber.d(message.toString());
+            String m = null;
+            if (firstMessage)
+                firstMessage = false;
+            else
+                m = String.format("received another message in topic %s: %s \nignored it",
+                        topic, message);
+
+            if (message.isDuplicate())
+                m = String.format("received duplicated message in topic %s: %s \nignored it",
+                        topic, message);
+
+            if (message.isRetained())
+                m = String.format("received retained message in topic %s: %s \nignored it",
+                        topic, message);
+
+            if (m != null) {
+                JobExecutionService.this.addLogInTextView(m);
+                return;
+            }
+
+            m = String.format("received message in topic %s: %s", topic, message);
+            JobExecutionService.this.addLogInTextView(m);
             String[] arr = message.toString().split(" ");
             String jobExecutableURL = getAbsoluteAddress(arr[0]);
             String jobInputURL = getAbsoluteAddress(arr[1]);
@@ -46,20 +67,20 @@ public class JobExecutionService {
             String executableFileName = getLastPartOfStringBySlash(jobExecutableURL);
             String inputFileName = getLastPartOfStringBySlash(jobInputURL);
             Job job = new Job(filesDir, cacheDir, jobExecutableURL, jobInputURL,
-                    executableFileName, inputFileName, fraction, totalFractions, jobId, deviceId);
+                    executableFileName, inputFileName, fraction, totalFractions, jobId, topic,
+                    logTextView);
             job.run();
-            JobExecutionService.this.unregister();
-//                JobExecutionService.this.unsubscribe(); TODO ???
+            JobExecutionService.this.unregister(topic);
             JobExecutionService.this.register_and_listen();
         }
     }
 
-    ;
-
-    public JobExecutionService(MqttAndroidClient client, File filesDir, File cacheDir) throws MqttException {
+    public JobExecutionService(MqttAndroidClient client, File filesDir, File cacheDir,
+                               TextView logTextView) throws MqttException {
         this.client = client;
         this.filesDir = filesDir;
         this.cacheDir = cacheDir;
+        this.logTextView = logTextView;
 //        MqttConnectOptions connectionOptions = new MqttConnectOptions();
 //        connectionOptions.setCleanSession(false); // TODO ???
         connect();
@@ -70,13 +91,13 @@ public class JobExecutionService {
 
             @Override
             public void onSuccess(IMqttToken asyncActionToken) {
-                Timber.d("======================= connected to broker");
+                addLogInTextView("connected to broker");
                 register_and_listen();
             }
 
             @Override
             public void onFailure(IMqttToken asyncActionToken, Throwable exception) {
-                exception.printStackTrace(); // TODO exit program
+                addLogInTextView(exception.getMessage());
             }
         };
         client.connect(null, onConnect);
@@ -85,62 +106,69 @@ public class JobExecutionService {
     private void disconnect() throws MqttException {
         if (client.isConnected()) {
             client.disconnect();
-            Timber.d("======================= disconnected from the broker");
+            addLogInTextView("disconnected from the broker");
         }
     }
 
     private String register() throws MqttException {
         String deviceId = unique();
-        client.publish(REGISTRATION_TOPIC, deviceId.getBytes(), QOS, false); // TODO retain, QOS, check really published
-        Timber.d("======================= registered as %s", deviceId);
+        client.publish(REGISTRATION_TOPIC, deviceId.getBytes(), QOS, false); // TODO QOS
+        String m = String.format("device registered as %s", deviceId);
+        addLogInTextView(m);
         return deviceId;
     }
 
-    private void unregister() throws MqttException {
-        client.publish(UNREGISTRATION_TOPIC, deviceId.getBytes(), QOS, false); // TODO retain, QOS
-        Timber.d("======================= unregistered %s", deviceId);
+    private void unregister(String deviceId) throws MqttException {
+        client.publish(UNREGISTRATION_TOPIC, deviceId.getBytes(), QOS, false); // TODO QOS
+        String m = String.format("unregistered %s", deviceId);
+        addLogInTextView(m);
     }
 
     private void listen(String topic) throws MqttException {
         MessageListener listener = new MessageListener();
         client.subscribe(topic, QOS, listener);
-        Timber.d("======================= listening to %s", topic);
+        String m = String.format("listening to %s", topic);
+        addLogInTextView(m);
     }
 
-    private void unsubscribe() throws MqttException {
-        client.unsubscribe(deviceId);
-        Timber.d("======================= unsubscribed %s", deviceId);
+    private void unsubscribe(String topic) throws MqttException {
+        client.unsubscribe(topic);
+        String m = String.format("unsubscribed %s", topic);
+        addLogInTextView(m);
     }
 
     private void register_and_listen() {
+        String topic;
         try {
-            deviceId = register();
+            topic = register();
+            deviceId = topic;
         } catch (MqttException e) {
-            e.printStackTrace();
-            // TODO exit program
-            return;
-        }
-        try {
-            listen(deviceId);
-        } catch (MqttException e) {
-            e.printStackTrace();
+            addLogInTextView(e.getMessage());
             try {
-                unregister();
+                disconnect();
             } catch (MqttException e2) {
-                e2.printStackTrace();
+                addLogInTextView(e2.getMessage());
             }
             return;
-            // TODO exit program
+        }
+
+        try {
+            listen(topic);
+        } catch (MqttException e) {
+            addLogInTextView(e.getMessage());
+            try {
+                unregister(topic);
+                disconnect();
+            } catch (MqttException e2) {
+                addLogInTextView(e2.getMessage());
+            }
         }
     }
 
-    public String unique() {
-        SecureRandom ng = numberGenerator;
-        if (ng == null) {
-            numberGenerator = ng = new SecureRandom();
-        }
+    private String unique() {
         long MSB = 0x8000000000000000L;
-        return Long.toHexString(MSB | ng.nextLong()) + Long.toHexString(MSB | ng.nextLong());
+        return Long.toHexString(MSB | numberGenerator.nextLong()) +
+                Long.toHexString(MSB | numberGenerator.nextLong());
     }
 
     private String getAbsoluteAddress(String relativeAddress) {
@@ -153,9 +181,14 @@ public class JobExecutionService {
     }
 
     public void terminate() throws MqttException {
-        unsubscribe();
-        unregister();
+        unsubscribe(deviceId);
+        unregister(deviceId);
         disconnect();
-        Timber.d("======================= terminated");
+        addLogInTextView("terminated");
+    }
+
+    private void addLogInTextView(String logMessage) {
+        Timber.d("======================= %s", logMessage);
+        logTextView.append(logMessage + "\n------------------\n");
     }
 }

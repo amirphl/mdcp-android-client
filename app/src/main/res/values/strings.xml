@@ -1,11 +1,12 @@
 <resources>
     <string name="app_name">AndroidMqttDemo</string>
-    <string name="broker_address">tcp://172.21.0.4:1883</string>
+    <string name="broker_address">tcp://172.25.0.2:1883</string>
     <string name="registration_topic">registration</string>
     <string name="unregistration_topic">unregistration</string>
     <string name="qos">1</string>
     <string name="executable_job_class">com.example.Job</string>
 <!--    <string name="executable_job_class">com.vruiz.invertedindex.Indexer</string>-->
     <string name="executable_start_method_name">start</string>
-    <string name="web_address">http://172.21.0.7:8080</string>
+    <string name="web_address">http://172.25.0.4:8000</string>
+    <string name="mdcp_android_client">mdcp android client \n</string>
 </resources>

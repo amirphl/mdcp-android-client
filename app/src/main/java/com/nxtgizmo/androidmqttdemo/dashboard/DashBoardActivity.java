@@ -1,6 +1,7 @@
 package com.nxtgizmo.androidmqttdemo.dashboard;
 
 import android.os.Bundle;
+import android.text.method.ScrollingMovementMethod;
 import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
@@ -21,7 +22,7 @@ public class DashBoardActivity extends AppCompatActivity implements DashboardCon
 
     @Inject
     MqttAndroidClient client;
-    private TextView message;
+    private TextView logTextView;
 
     private JobExecutionService jobExecutionService;
     public static String APP_NAME;
@@ -38,7 +39,8 @@ public class DashBoardActivity extends AppCompatActivity implements DashboardCon
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         ((MqttApp) getApplication()).getMqttComponent().inject(this);
-        message = findViewById(R.id.message);
+        logTextView = findViewById(R.id.message);
+        logTextView.setMovementMethod(new ScrollingMovementMethod());
 
         APP_NAME = getString(R.string.app_name);
         REGISTRATION_TOPIC = getString(R.string.registration_topic);
@@ -49,33 +51,33 @@ public class DashBoardActivity extends AppCompatActivity implements DashboardCon
         WEB_ADDRESS = getString(R.string.web_address);
 
         try {
-            jobExecutionService = new JobExecutionService(client, getCacheDir(),
-                    getCacheDir());
+            jobExecutionService = new JobExecutionService(client, getCacheDir(), getCacheDir(),
+                    logTextView);
         } catch (MqttException e) {
-            e.printStackTrace();
+            Timber.d("======================= %s", e.getMessage());
+            logTextView.append(e.getMessage() + "\n------------------\n");
         }
     }
 
 
     @Override
     public void onSuccess(String successMessage) {
-        Timber.d(successMessage);
-        message.setText(successMessage);
+        logTextView.setText(successMessage);
     }
 
     @Override
     public void onError(String errorMessage) {
-        Timber.d(errorMessage);
-        message.setText(errorMessage);
+        logTextView.setText(errorMessage);
     }
 
     @Override
     protected void onDestroy() {
-        super.onDestroy();
         try {
             jobExecutionService.terminate();
         } catch (MqttException e) {
-            e.printStackTrace();
+            Timber.d("======================= %s", e.getMessage());
+            logTextView.append(e.getMessage() + "\n------------------\n");
         }
+        super.onDestroy();
     }
 }
