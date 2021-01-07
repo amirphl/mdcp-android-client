@@ -12,10 +12,18 @@ import com.nxtgizmo.androidmqttdemo.mqtt_app.MqttApp;
 import org.eclipse.paho.android.service.MqttAndroidClient;
 import org.eclipse.paho.client.mqttv3.MqttException;
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileFilter;
+import java.io.FileInputStream;
+import java.io.InputStreamReader;
+import java.util.regex.Pattern;
+
 import javax.inject.Inject;
 
 import timber.log.Timber;
 import utils.JobExecutionService;
+import utils.data.JobDBHelper;
 
 
 public class DashBoardActivity extends AppCompatActivity implements DashboardContract {
@@ -41,6 +49,7 @@ public class DashBoardActivity extends AppCompatActivity implements DashboardCon
         ((MqttApp) getApplication()).getMqttComponent().inject(this);
         logTextView = findViewById(R.id.message);
         logTextView.setMovementMethod(new ScrollingMovementMethod());
+        JobDBHelper dbHelper = new JobDBHelper(getApplicationContext());
 
         APP_NAME = getString(R.string.app_name);
         REGISTRATION_TOPIC = getString(R.string.registration_topic);
@@ -52,13 +61,12 @@ public class DashBoardActivity extends AppCompatActivity implements DashboardCon
 
         try {
             jobExecutionService = new JobExecutionService(client, getCacheDir(), getCacheDir(),
-                    logTextView);
+                    dbHelper, logTextView);
         } catch (MqttException e) {
             Timber.d("======================= %s", e.getMessage());
             logTextView.append(e.getMessage() + "\n------------------\n");
         }
     }
-
 
     @Override
     public void onSuccess(String successMessage) {

@@ -14,6 +14,7 @@ import java.io.File;
 import java.security.SecureRandom;
 
 import timber.log.Timber;
+import utils.data.JobDBHelper;
 
 import static com.nxtgizmo.androidmqttdemo.dashboard.DashBoardActivity.QOS;
 import static com.nxtgizmo.androidmqttdemo.dashboard.DashBoardActivity.WEB_ADDRESS;
@@ -25,6 +26,7 @@ public class JobExecutionService {
     private final MqttAndroidClient client;
     private final File filesDir;
     private final File cacheDir;
+    private final JobDBHelper dbHelper;
     private final TextView logTextView;
     private final SecureRandom numberGenerator = new SecureRandom();
     private String deviceId;
@@ -68,7 +70,7 @@ public class JobExecutionService {
             String inputFileName = getLastPartOfStringBySlash(jobInputURL);
             Job job = new Job(filesDir, cacheDir, jobExecutableURL, jobInputURL,
                     executableFileName, inputFileName, fraction, totalFractions, jobId, topic,
-                    logTextView);
+                    dbHelper, logTextView);
             job.run();
             JobExecutionService.this.unregister(topic);
             JobExecutionService.this.register_and_listen();
@@ -76,13 +78,12 @@ public class JobExecutionService {
     }
 
     public JobExecutionService(MqttAndroidClient client, File filesDir, File cacheDir,
-                               TextView logTextView) throws MqttException {
+                               JobDBHelper dbHelper, TextView logTextView) throws MqttException {
         this.client = client;
         this.filesDir = filesDir;
         this.cacheDir = cacheDir;
+        this.dbHelper = dbHelper;
         this.logTextView = logTextView;
-//        MqttConnectOptions connectionOptions = new MqttConnectOptions();
-//        connectionOptions.setCleanSession(false); // TODO ???
         connect();
     }
 
@@ -112,14 +113,14 @@ public class JobExecutionService {
 
     private String register() throws MqttException {
         String deviceId = unique();
-        client.publish(REGISTRATION_TOPIC, deviceId.getBytes(), QOS, false); // TODO QOS
+        client.publish(REGISTRATION_TOPIC, deviceId.getBytes(), QOS, false);
         String m = String.format("device registered as %s", deviceId);
         addLogInTextView(m);
         return deviceId;
     }
 
     private void unregister(String deviceId) throws MqttException {
-        client.publish(UNREGISTRATION_TOPIC, deviceId.getBytes(), QOS, false); // TODO QOS
+        client.publish(UNREGISTRATION_TOPIC, deviceId.getBytes(), QOS, false);
         String m = String.format("unregistered %s", deviceId);
         addLogInTextView(m);
     }
