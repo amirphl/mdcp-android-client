@@ -75,12 +75,13 @@ public class Job {
             long s = System.currentTimeMillis();
             start.invoke(executableJobInstance, jobInputURL, outputFilePath, fraction, totalFractions); // TODO don't let write anywhere except
             long e = System.currentTimeMillis();
+            long consumedTime = e - s;
 
-            m = String.format("took %s milliseconds to execute %s", (e - s), executableFileName);
+            m = String.format("took %s milliseconds to execute %s", consumedTime, executableFileName);
             jobExecutionService.onSuccess(m);
 
-            long timeSpentToUploadOutputFile = uploadOutput(outputFilePath);
-            insertStats(outputFilePath, e - s, -1, -1,
+            long timeSpentToUploadOutputFile = uploadOutput(outputFilePath, consumedTime);
+            insertStats(outputFilePath, consumedTime, -1, -1,
                     timeSpentToDownloadExecutable, timeSpentToUploadOutputFile,
                     executableBytes.length, new File(outputFilePath).length());
         } catch (IOException | ClassNotFoundException | IllegalAccessException |
@@ -90,7 +91,7 @@ public class Job {
             try {
                 String errorsFilePath = writeFileOnInternalStorage("errors.csv",
                         e.getMessage().getBytes());
-                uploadOutput(errorsFilePath);
+                uploadOutput(errorsFilePath, -1);
             } catch (IOException e2) {
                 jobExecutionService.onError(e2.getMessage());
             }
@@ -133,13 +134,14 @@ public class Job {
         return f.getAbsolutePath();
     }
 
-    private long uploadOutput(String path) {
-        File file = new File(path);
+    private long uploadOutput(String outputPath, long consumedTime) {
+        File file = new File(outputPath);
         MultipartBody multipartBody = new MultipartBody.Builder()
                 .setType(MultipartBody.FORM)
                 .addFormDataPart("index", String.valueOf(fraction))
                 .addFormDataPart("device_id", jobExecutionService.getDeviceId())
-                .addFormDataPart("file", "partial_result_file",
+                .addFormDataPart("consumed_time", String.valueOf(consumedTime))
+                .addFormDataPart("file", "partial_result_file.out",
                         RequestBody.create(MediaType.parse("text/csv"), file)) // TODO media type may be unknown
                 .build();
         Request request = new Request.Builder()
