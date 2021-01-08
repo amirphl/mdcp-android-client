@@ -1,6 +1,6 @@
 package utils;
 
-import android.widget.TextView;
+import com.nxtgizmo.androidmqttdemo.dashboard.DashBoardActivity;
 
 import org.eclipse.paho.android.service.MqttAndroidClient;
 import org.eclipse.paho.client.mqttv3.IMqttActionListener;
@@ -24,10 +24,7 @@ import static com.nxtgizmo.androidmqttdemo.dashboard.DashBoardActivity.REGISTRAT
 public class JobExecutionService {
 
     private final MqttAndroidClient client;
-    private final File filesDir;
-    private final File cacheDir;
-    private final JobDBHelper dbHelper;
-    private final TextView logTextView;
+    private final DashBoardActivity dashBoardActivity;
     private final SecureRandom numberGenerator = new SecureRandom();
     private String deviceId;
 
@@ -54,12 +51,12 @@ public class JobExecutionService {
                         topic, message);
 
             if (m != null) {
-                JobExecutionService.this.addLogInTextView(m);
+                dashBoardActivity.onError(m);
                 return;
             }
 
             m = String.format("received message in topic %s: %s", topic, message);
-            JobExecutionService.this.addLogInTextView(m);
+            dashBoardActivity.onSuccess(m);
             String[] arr = message.toString().split(" ");
             String jobExecutableURL = getAbsoluteAddress(arr[0]);
             String jobInputURL = getAbsoluteAddress(arr[1]);
@@ -67,23 +64,18 @@ public class JobExecutionService {
             int totalFractions = Integer.parseInt(arr[3]);
             String jobId = arr[4];
             String executableFileName = getLastPartOfStringBySlash(jobExecutableURL);
-            String inputFileName = getLastPartOfStringBySlash(jobInputURL);
-            Job job = new Job(filesDir, cacheDir, jobExecutableURL, jobInputURL,
-                    executableFileName, inputFileName, fraction, totalFractions, jobId, topic,
-                    dbHelper, logTextView);
+            Job job = new Job(JobExecutionService.this, jobExecutableURL, jobInputURL,
+                    executableFileName, fraction, totalFractions, jobId);
             job.run();
             JobExecutionService.this.unregister(topic);
             JobExecutionService.this.register_and_listen();
         }
     }
 
-    public JobExecutionService(MqttAndroidClient client, File filesDir, File cacheDir,
-                               JobDBHelper dbHelper, TextView logTextView) throws MqttException {
+    public JobExecutionService(MqttAndroidClient client, DashBoardActivity dashBoardActivity)
+            throws MqttException {
         this.client = client;
-        this.filesDir = filesDir;
-        this.cacheDir = cacheDir;
-        this.dbHelper = dbHelper;
-        this.logTextView = logTextView;
+        this.dashBoardActivity = dashBoardActivity;
         connect();
     }
 
@@ -92,13 +84,13 @@ public class JobExecutionService {
 
             @Override
             public void onSuccess(IMqttToken asyncActionToken) {
-                addLogInTextView("connected to broker");
+                dashBoardActivity.onSuccess("connected to broker");
                 register_and_listen();
             }
 
             @Override
             public void onFailure(IMqttToken asyncActionToken, Throwable exception) {
-                addLogInTextView(exception.getMessage());
+                dashBoardActivity.onError(exception.getMessage());
             }
         };
         client.connect(null, onConnect);
@@ -107,7 +99,7 @@ public class JobExecutionService {
     private void disconnect() throws MqttException {
         if (client.isConnected()) {
             client.disconnect();
-            addLogInTextView("disconnected from the broker");
+            dashBoardActivity.onSuccess("disconnected from the broker");
         }
     }
 
@@ -115,27 +107,27 @@ public class JobExecutionService {
         String deviceId = unique();
         client.publish(REGISTRATION_TOPIC, deviceId.getBytes(), QOS, false);
         String m = String.format("device registered as %s", deviceId);
-        addLogInTextView(m);
+        dashBoardActivity.onSuccess(m);
         return deviceId;
     }
 
     private void unregister(String deviceId) throws MqttException {
         client.publish(UNREGISTRATION_TOPIC, deviceId.getBytes(), QOS, false);
         String m = String.format("unregistered %s", deviceId);
-        addLogInTextView(m);
+        dashBoardActivity.onSuccess(m);
     }
 
     private void listen(String topic) throws MqttException {
         MessageListener listener = new MessageListener();
         client.subscribe(topic, QOS, listener);
         String m = String.format("listening to %s", topic);
-        addLogInTextView(m);
+        dashBoardActivity.onSuccess(m);
     }
 
     private void unsubscribe(String topic) throws MqttException {
         client.unsubscribe(topic);
         String m = String.format("unsubscribed %s", topic);
-        addLogInTextView(m);
+        dashBoardActivity.onSuccess(m);
     }
 
     private void register_and_listen() {
@@ -144,11 +136,11 @@ public class JobExecutionService {
             topic = register();
             deviceId = topic;
         } catch (MqttException e) {
-            addLogInTextView(e.getMessage());
+            dashBoardActivity.onError(e.getMessage());
             try {
                 disconnect();
             } catch (MqttException e2) {
-                addLogInTextView(e2.getMessage());
+                dashBoardActivity.onError(e2.getMessage());
             }
             return;
         }
@@ -156,12 +148,12 @@ public class JobExecutionService {
         try {
             listen(topic);
         } catch (MqttException e) {
-            addLogInTextView(e.getMessage());
+            dashBoardActivity.onError(e.getMessage());
             try {
                 unregister(topic);
                 disconnect();
             } catch (MqttException e2) {
-                addLogInTextView(e2.getMessage());
+                dashBoardActivity.onError(e2.getMessage());
             }
         }
     }
@@ -185,11 +177,26 @@ public class JobExecutionService {
         unsubscribe(deviceId);
         unregister(deviceId);
         disconnect();
-        addLogInTextView("terminated");
+        dashBoardActivity.onSuccess("terminated");
     }
 
-    private void addLogInTextView(String logMessage) {
-        Timber.d("======================= %s", logMessage);
-        logTextView.append(logMessage + "\n------------------\n");
+    public File getCacheDir() {
+        return dashBoardActivity.getCacheDir();
+    }
+
+    public JobDBHelper getJobDBHelper() {
+        return dashBoardActivity.getDbHelper();
+    }
+
+    public String getDeviceId() {
+        return deviceId;
+    }
+
+    public void onSuccess(String successMessage) {
+        dashBoardActivity.onSuccess(successMessage);
+    }
+
+    public void onError(String errorMessage) {
+        dashBoardActivity.onError(errorMessage);
     }
 }

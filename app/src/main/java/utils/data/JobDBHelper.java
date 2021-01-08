@@ -21,10 +21,8 @@ public class JobDBHelper extends SQLiteOpenHelper {
                     JobContract.Job.COLUMN_NAME_AVG_CPU_USAGE + " INT," +
                     JobContract.Job.COLUMN_NAME_AVG_RAM_USAGE + " INT," +
                     JobContract.Job.COLUMN_NAME_AVG_TIME_SPENT_TO_DOWNLOAD_EXECUTABLE + " INT," +
-                    JobContract.Job.COLUMN_NAME_AVG_TIME_SPENT_TO_DOWNLOAD_INPUT_FILE + " INT," +
                     JobContract.Job.COLUMN_NAME_AVG_TIME_SPENT_TO_UPLOAD_OUTPUT_FILE + " INT," +
                     JobContract.Job.COLUMN_NAME_EXECUTABLE_SIZE + " INT," +
-                    JobContract.Job.COLUMN_NAME_INPUT_FILE_SIZE + " INT," +
                     JobContract.Job.COLUMN_NAME_OUTPUT_FILE_SIZE + " INT," +
                     JobContract.Job.COLUMN_NAME_CREATED_AT + " DATETIME NOT NULL DEFAULT (datetime(CURRENT_TIMESTAMP, 'localtime')));";
 

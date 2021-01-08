@@ -12,13 +12,6 @@ import com.nxtgizmo.androidmqttdemo.mqtt_app.MqttApp;
 import org.eclipse.paho.android.service.MqttAndroidClient;
 import org.eclipse.paho.client.mqttv3.MqttException;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileFilter;
-import java.io.FileInputStream;
-import java.io.InputStreamReader;
-import java.util.regex.Pattern;
-
 import javax.inject.Inject;
 
 import timber.log.Timber;
@@ -33,6 +26,7 @@ public class DashBoardActivity extends AppCompatActivity implements DashboardCon
     private TextView logTextView;
 
     private JobExecutionService jobExecutionService;
+    private JobDBHelper dbHelper;
     public static String APP_NAME;
     public static String REGISTRATION_TOPIC;
     public static String UNREGISTRATION_TOPIC;
@@ -49,7 +43,7 @@ public class DashBoardActivity extends AppCompatActivity implements DashboardCon
         ((MqttApp) getApplication()).getMqttComponent().inject(this);
         logTextView = findViewById(R.id.message);
         logTextView.setMovementMethod(new ScrollingMovementMethod());
-        JobDBHelper dbHelper = new JobDBHelper(getApplicationContext());
+        dbHelper = new JobDBHelper(getApplicationContext());
 
         APP_NAME = getString(R.string.app_name);
         REGISTRATION_TOPIC = getString(R.string.registration_topic);
@@ -60,8 +54,7 @@ public class DashBoardActivity extends AppCompatActivity implements DashboardCon
         WEB_ADDRESS = getString(R.string.web_address);
 
         try {
-            jobExecutionService = new JobExecutionService(client, getCacheDir(), getCacheDir(),
-                    dbHelper, logTextView);
+            jobExecutionService = new JobExecutionService(client, this);
         } catch (MqttException e) {
             Timber.d("======================= %s", e.getMessage());
             logTextView.append(e.getMessage() + "\n------------------\n");
@@ -70,12 +63,14 @@ public class DashBoardActivity extends AppCompatActivity implements DashboardCon
 
     @Override
     public void onSuccess(String successMessage) {
-        logTextView.setText(successMessage);
+        Timber.d("======================= %s", successMessage);
+        addLogInTextView(successMessage);
     }
 
     @Override
     public void onError(String errorMessage) {
-        logTextView.setText(errorMessage);
+        Timber.e("======================= %s", errorMessage);
+        addLogInTextView(errorMessage);
     }
 
     @Override
@@ -87,5 +82,13 @@ public class DashBoardActivity extends AppCompatActivity implements DashboardCon
             logTextView.append(e.getMessage() + "\n------------------\n");
         }
         super.onDestroy();
+    }
+
+    public JobDBHelper getDbHelper() {
+        return dbHelper;
+    }
+
+    private void addLogInTextView(String logMessage) {
+        logTextView.append(logMessage + "\n------------------\n");
     }
 }
