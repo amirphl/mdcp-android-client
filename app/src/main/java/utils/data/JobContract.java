@@ -19,12 +19,9 @@ public final class JobContract {
         public static final String COLUMN_NAME_AVG_RAM_USAGE = "avg_ram_usage";
         public static final String COLUMN_NAME_AVG_TIME_SPENT_TO_DOWNLOAD_EXECUTABLE =
                 "time_spent_to_download_executable"; // milliseconds
-        public static final String COLUMN_NAME_AVG_TIME_SPENT_TO_DOWNLOAD_INPUT_FILE =
-                "time_spent_to_download_input_file"; // milliseconds
         public static final String COLUMN_NAME_AVG_TIME_SPENT_TO_UPLOAD_OUTPUT_FILE =
                 "time_spent_to_upload_output_file"; // milliseconds
         public static final String COLUMN_NAME_EXECUTABLE_SIZE = "executable_size"; // bytes
-        public static final String COLUMN_NAME_INPUT_FILE_SIZE = "input_file_size"; // bytes
         public static final String COLUMN_NAME_OUTPUT_FILE_SIZE = "output_file_size"; // bytes
         public static final String COLUMN_NAME_CREATED_AT = "created_at";
     }
