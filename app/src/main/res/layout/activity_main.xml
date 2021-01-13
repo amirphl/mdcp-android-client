@@ -15,5 +15,8 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:layout_gravity="fill_vertical"
+        android:textSize="15sp"
+        android:textColor="#000000"
+        android:textStyle="bold"
         android:text="@string/mdcp_android_client" />
 </RelativeLayout>

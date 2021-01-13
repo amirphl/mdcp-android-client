@@ -69,7 +69,7 @@ public class Job {
             Method start = c.getMethod(EXECUTABLE_START_METHOD_NAME,
                     String.class, String.class, int.class, int.class);
 
-            String m = String.format("starting execution of %s with %s as input", executableFileName, jobInputURL);
+            String m = String.format("starting execution >\nexecutable:\n%s\ninput:\n%s", executableFileName, jobInputURL);
             jobExecutionService.onSuccess(m);
 
             long s = System.currentTimeMillis();
@@ -77,7 +77,7 @@ public class Job {
             long e = System.currentTimeMillis();
             long consumedTime = e - s;
 
-            m = String.format("took %s milliseconds to execute %s", consumedTime, executableFileName);
+            m = String.format("took %s milliseconds to execute >\n%s", consumedTime, executableFileName);
             jobExecutionService.onSuccess(m);
 
             long timeSpentToUploadOutputFile = uploadOutput(outputFilePath, consumedTime);
@@ -108,7 +108,7 @@ public class Job {
         while ((current = bis.read(data, 0, data.length)) != -1)
             baos.write(data, 0, current);
         long e = System.currentTimeMillis();
-        String m = String.format("DownloadManager: downloaded %s in %s milliseconds", downloadUrl,
+        String m = String.format("download status >\nfile:\n%s\ntime: %s milliseconds", downloadUrl,
                 (e - s));
         jobExecutionService.onSuccess(m);
         HashMap<String, Object> output = new HashMap<>();
@@ -125,7 +125,7 @@ public class Job {
             jobExecutionService.onSuccess(m);
         }
         File f = new File(dir, fileName);
-        String m = String.format("write file in %s", f.getAbsoluteFile());
+        String m = String.format("writing file >\npath: %s", f.getAbsoluteFile());
         jobExecutionService.onSuccess(m);
         FileOutputStream fos = new FileOutputStream(f);
         fos.write(body);
@@ -155,7 +155,7 @@ public class Job {
             int respCode = response.code();
             String respMsg = response.message();
             String respBody = response.body().string();
-            String m = String.format("upload result:\nstatus code: %s\nresponse message: %s\nresponse body: %s\nupload time: %s milliseconds",
+            String m = String.format("upload status >\nstatus code: %s\nresponse message: %s\nresponse body: %s\nupload time: %s milliseconds",
                     respCode, respMsg, respBody, e - s);
             jobExecutionService.onSuccess(m);
             return e - s;
@@ -186,7 +186,7 @@ public class Job {
         values.put(JobContract.Job.COLUMN_NAME_EXECUTABLE_SIZE, executableSize);
         values.put(JobContract.Job.COLUMN_NAME_OUTPUT_FILE_SIZE, outputFileSize);
         long newRowId = db.insert(JobContract.Job.TABLE_NAME, null, values);
-        String m = String.format("inserted job stats into SQLite:\n%s\nrow id: %s", values, newRowId);
-        jobExecutionService.onSuccess(m);
+//        String m = String.format("inserted job stats into SQLite:\n%s\nrow id: %s", values, newRowId);
+//        jobExecutionService.onSuccess(m);
     }
 }
