@@ -55,8 +55,6 @@ public class JobExecutionService {
                 return;
             }
 
-            m = String.format("received message in topic %s: %s", topic, message);
-            dashBoardActivity.onSuccess(m);
             String[] arr = message.toString().split(" ");
             String jobExecutableURL = getAbsoluteAddress(arr[0]);
             String jobInputURL = getAbsoluteAddress(arr[1]);
@@ -64,6 +62,10 @@ public class JobExecutionService {
             int totalFractions = Integer.parseInt(arr[3]);
             String jobId = arr[4];
             String executableFileName = getLastPartOfStringBySlash(jobExecutableURL);
+            m = String.format("received job >\ntopic: %s\nid: %s\nexecutable url:\n%s\n" +
+                            "input url:\n%s\nfraction: %s\ntotal fractions: %s",
+                    topic, jobId, jobExecutableURL, jobInputURL, fraction, totalFractions);
+            dashBoardActivity.onSuccess(m);
             Job job = new Job(JobExecutionService.this, jobExecutableURL, jobInputURL,
                     executableFileName, fraction, totalFractions, jobId);
             job.run();
