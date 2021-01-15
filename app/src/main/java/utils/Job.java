@@ -38,8 +38,10 @@ public class Job {
     private final int totalFractions;
     private final String jobId;
     private final String TIME = "TIME";
-    private final String DATA = "DATA";
+    private final String SIZE = "SIZE";
+    private final String PATH = "PATH";
     private final String outputFilePath;
+    private final File appDir;
 
     public Job(JobExecutionService jobExecutionService, String jobExecutableURL, String jobInputURL,
                String executableFileName, int fraction, int totalFractions, String jobId) {
@@ -51,15 +53,16 @@ public class Job {
         this.totalFractions = totalFractions;
         this.jobId = jobId;
         outputFilePath = jobExecutionService.getCacheDir().getAbsolutePath() + "/" + APP_NAME + "/output";
+        appDir = new File(jobExecutionService.getCacheDir(), APP_NAME);
+        createAppDir();
     }
 
     public void run() {
         try {
-            HashMap<String, Object> h = download(jobExecutableURL);
+            HashMap<String, Object> h = downloadAndSave(jobExecutableURL, executableFileName);
             long timeSpentToDownloadExecutable = (long) h.get(TIME);
-            byte[] executableBytes = (byte[]) h.get(DATA);
-
-            String executableFilePath = writeFileOnInternalStorage(executableFileName, executableBytes);
+            String executableFilePath = (String) h.get(PATH);
+            int size = (int) h.get(SIZE);
 
             final DexClassLoader classLoader = new DexClassLoader(executableFilePath,
                     jobExecutionService.getCacheDir().getAbsolutePath(), null,
@@ -83,7 +86,7 @@ public class Job {
             long timeSpentToUploadOutputFile = uploadOutput(outputFilePath, consumedTime);
             insertStats(outputFilePath, consumedTime, -1, -1,
                     timeSpentToDownloadExecutable, timeSpentToUploadOutputFile,
-                    executableBytes.length, new File(outputFilePath).length());
+                    size, new File(outputFilePath).length());
         } catch (IOException | ClassNotFoundException | IllegalAccessException |
                 InstantiationException | NoSuchMethodException | InvocationTargetException e) {
             e.printStackTrace();
@@ -98,33 +101,41 @@ public class Job {
         }
     }
 
-    private HashMap<String, Object> download(String downloadUrl) throws IOException {
+    private HashMap<String, Object> downloadAndSave(String downloadUrl, String filename) throws IOException {
         long s = System.currentTimeMillis();
         InputStream is = new URL(downloadUrl).openConnection().getInputStream();
         BufferedInputStream bis = new BufferedInputStream(is);
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        byte[] data = new byte[5000];
+        File f = new File(appDir, filename);
+        FileOutputStream fos = new FileOutputStream(f);
+        byte[] baf = new byte[1024 * 1024];
         int current;
-        while ((current = bis.read(data, 0, data.length)) != -1)
-            baos.write(data, 0, current);
+        int acc = 0;
+        while ((current = bis.read(baf, 0, baf.length)) != -1) {
+            fos.write(baf, 0, current);
+            acc += current;
+        }
+        fos.flush();
+        fos.close();
         long e = System.currentTimeMillis();
-        String m = String.format("download status >\nfile:\n%s\ntime: %s milliseconds", downloadUrl,
-                (e - s));
+        String m = String.format("download status >\nfile: %s\ntime: %s milliseconds", downloadUrl, (e - s));
         jobExecutionService.onSuccess(m);
         HashMap<String, Object> output = new HashMap<>();
-        output.put(DATA, baos.toByteArray());
+        output.put(SIZE, acc);
+        output.put(PATH, f.getAbsolutePath());
         output.put(TIME, (e - s));
         return output;
     }
 
-    private String writeFileOnInternalStorage(String fileName, byte[] body) throws IOException {
-        File dir = new File(jobExecutionService.getCacheDir(), APP_NAME);
-        if (!dir.exists()) {
-            boolean t = dir.mkdir();
+    private void createAppDir() {
+        if (!appDir.exists()) {
+            boolean t = appDir.mkdir();
             String m = String.format("created folder %s ? %s", APP_NAME, t);
             jobExecutionService.onSuccess(m);
         }
-        File f = new File(dir, fileName);
+    }
+
+    private String writeFileOnInternalStorage(String fileName, byte[] body) throws IOException {
+        File f = new File(appDir, fileName);
         String m = String.format("writing file >\npath: %s", f.getAbsoluteFile());
         jobExecutionService.onSuccess(m);
         FileOutputStream fos = new FileOutputStream(f);
